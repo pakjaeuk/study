@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025년 점심 기록(1)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h2>2025년 점심 기록</h2>
+    <label>날짜: <input type="date" id="date"></label>
+    <label>메뉴: <input type="text" id="menu"></label>
+    <label>가격: <input type="number" id="price"></label>
+    <button onclick="addLunch()">등록</button>
+    <button onclick="fetchLunchData()">결과 보기</button>
+    
+    <h3>점심 기록</h3>
+    <table id="lunchTable">
+        <tr>
+            <th>날짜</th>
+            <th>메뉴</th>
+            <th>가격</th>
+        </tr>
+    </table>
+    
+    <h3>월별 합계 및 총합</h3>
+    <p id="total"></p>
+
+    <script>
+        async function addLunch() {
+            let date = document.getElementById('date').value;
+            let menu = document.getElementById('menu').value;
+            let price = parseInt(document.getElementById('price').value);
+            
+            if (!date || !menu || isNaN(price)) {
+                alert('모든 항목을 입력해주세요.');
+                return;
+            }
+            
+            let response = await fetch('http://localhost:5000/add_lunch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, menu, price })
+            });
+            
+            if (response.ok) {
+                alert('등록 완료!');
+                fetchLunchData();
+            } else {
+                alert('등록 실패!');
+            }
+        }
+
+        async function fetchLunchData() {
+            let response = await fetch('http://localhost:5000/get_lunch');
+            let data = await response.json();
+            
+            let table = document.getElementById('lunchTable');
+            table.innerHTML = '<tr><th>날짜</th><th>메뉴</th><th>가격</th></tr>';
+            
+            let monthlyTotal = {};
+            let grandTotal = 0;
+            
+            data.forEach(entry => {
+                let row = table.insertRow();
+                row.insertCell(0).innerText = entry.date;
+                row.insertCell(1).innerText = entry.menu;
+                row.insertCell(2).innerText = formatNumber(entry.price) + '원';
+                
+                let month = entry.date.slice(0, 7);
+                if (!monthlyTotal[month]) {
+                    monthlyTotal[month] = 0;
+                }
+                monthlyTotal[month] += entry.price;
+                grandTotal += entry.price;
+            });
+            
+            let result = '<strong>월별 합계:</strong><br>';
+            for (let month in monthlyTotal) {
+                result += `${month}: ${formatNumber(monthlyTotal[month])}원<br>`;
+            }
+            result += `<br><strong>최종 합계:</strong> ${formatNumber(grandTotal)}원`;
+            document.getElementById('total').innerHTML = result;
+        }
+
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+    </script>
+</body>
+</html>
