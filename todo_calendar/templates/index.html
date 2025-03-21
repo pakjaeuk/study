@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>할 일 달력</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 10px; text-align: center; width: 14.2%; vertical-align: top; }
+        .todo-list { list-style: none; padding: 0; }
+        .todo-item { font-size: 14px; color: blue; }
+    </style>
+</head>
+<body>
+
+<h2>할 일 관리 달력</h2>
+
+<!-- 연도와 월 선택 -->
+<label for="year">연도:</label>
+<select id="year" onchange="updateCalendar()"></select>
+
+<label for="month">월:</label>
+<select id="month" onchange="updateCalendar()">
+    <script>
+        for (let m = 1; m <= 12; m++) {
+            document.write(`<option value="${m.toString().padStart(2, '0')}">${m}</option>`);
+        }
+    </script>
+</select>
+
+<table>
+    <tr>
+        <th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th>
+    </tr>
+    <tbody id="calendar-body"></tbody>
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 연도 목록 추가
+        let yearSelect = document.getElementById("year");
+        let currentYear = new Date().getFullYear();
+        for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        }
+        yearSelect.value = currentYear;
+
+        // 현재 월 선택
+        let monthSelect = document.getElementById("month");
+        monthSelect.value = (new Date().getMonth() + 1).toString().padStart(2, '0');
+
+        // 초기에 달력 표시
+        updateCalendar();
+    });
+
+    function updateCalendar() {
+        let year = document.getElementById("year").value;
+        let month = document.getElementById("month").value;
+
+        const startDay = new Date(year, month - 1, 1).getDay();
+        const daysInMonth = new Date(year, month, 0).getDate();
+        let calendarHtml = "<tr>";
+
+        for (let i = 0; i < startDay; i++) {
+            calendarHtml += "<td></td>";
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            let date = `${year}-${month}-${day.toString().padStart(2, '0')}`;
+            calendarHtml += `<td id="day-${date}">
+                <strong>${day}</strong>
+                <ul class="todo-list" id="todos-${date}"></ul>
+                <input type="text" id="input-${date}" placeholder="할 일 입력">
+                <button onclick="addTodo('${date}')">추가</button>
+            </td>`;
+
+            if ((startDay + day) % 7 === 0) {
+                calendarHtml += "</tr><tr>";
+            }
+        }
+
+        document.getElementById("calendar-body").innerHTML = calendarHtml;
+        loadTodos(year, month);
+    }
+
+    function addTodo(date) {
+        const input = document.getElementById(`input-${date}`);
+        const task = input.value.trim();
+        if (task === "") return;
+
+        fetch('/add_todo', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: date, task: task })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data.message);
+            loadTodos(document.getElementById("year").value, document.getElementById("month").value);
+        });
+
+        input.value = "";
+    }
+
+    function loadTodos(year, month) {
+        fetch(`/get_todos?year=${year}&month=${month}`)
+        .then(response => response.json())
+        .then(todos => {
+            document.querySelectorAll(".todo-list").forEach(ul => ul.innerHTML = "");
+
+            for (let date in todos) {
+                let todoList = document.getElementById(`todos-${date}`);
+                todos[date].forEach(task => {
+                    let li = document.createElement("li");
+                    li.classList.add("todo-item");
+                    li.textContent = task;
+                    todoList.appendChild(li);
+                });
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
